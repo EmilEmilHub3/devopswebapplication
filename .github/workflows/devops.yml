@@ -91,7 +91,7 @@ jobs:
           allowUpdates: true
           body: |
             This release includes the following container image:
-            ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
+            http://ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
 
 
       - name: Deliver Docker compose file to staging
