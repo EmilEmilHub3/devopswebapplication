@@ -113,3 +113,6 @@ jobs:
             cd dowa
             docker compose pull
             docker compose up -d
+
+
+          #test
