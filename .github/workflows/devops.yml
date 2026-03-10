@@ -75,8 +75,8 @@ jobs:
       # Both the staging tag and the version tag are uploaded
       - name: Push Docker images
         run: |
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}:staging
-          docker push ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
+          docker push ghcr.io/tboulund-devops/devops-web-app:staging
+          docker push ghcr.io/tboulund-devops/devops-web-app:${{ steps.semver-app.outputs.version }}
 
       # Step 7: Create a GitHub Release
       # This generates release notes automatically
@@ -89,3 +89,6 @@ jobs:
           body: |
             This release includes the following container image:
             ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
+
+
+      
