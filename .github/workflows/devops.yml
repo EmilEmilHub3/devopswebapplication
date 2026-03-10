@@ -91,3 +91,24 @@ jobs:
           body: |
             This release includes the following container image:
             ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
+
+
+      - name: Deliver Docker compose file to staging
+        uses: appleboy/scp-action@v0.1.7
+        with: 
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "docker-compose.yaml"
+          target: dowa/
+
+      - name: Run Docker Compose on staging server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd dowa
+            docker compose pull
+            docker compose up -d

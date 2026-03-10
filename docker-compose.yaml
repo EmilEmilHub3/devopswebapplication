@@ -1,5 +1,5 @@
 services:
   web:
-    image: ghcr.io/tboulund-devops/devops-web-app:staging
+    image: ghcr.io/emilemilhub3/devopswebapplication:staging
     ports:
       - "8000:8080"
