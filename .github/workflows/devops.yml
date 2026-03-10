@@ -17,6 +17,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Convert repo name to lowercase (Docker requirement)
+      - name: Set lowercase repository name
+        id: repo
+        run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Calculate semantic version
         id: semver-app
         uses: paulhatch/semantic-version@v5.4.0
@@ -33,15 +38,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Docker image
+      - name: Build Docker image
         run: |
           docker build \
-            -t ghcr.io/${{ github.repository }}:staging \
-            -t ghcr.io/${{ github.repository }}:${{ steps.semver-app.outputs.version }} \
+            -t ghcr.io/${{ steps.repo.outputs.repo }}:staging \
+            -t ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }} \
             -f DevOpsWebApplication/Dockerfile \
             .
 
-          docker push ghcr.io/${{ github.repository }} --all-tags
+      - name: Push Docker images
+        run: |
+          docker push ghcr.io/${{ steps.repo.outputs.repo }}:staging
+          docker push ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
 
       - name: Create release notes
         uses: ncipollo/release-action@v1
@@ -50,4 +58,4 @@ jobs:
           generateReleaseNotes: true
           body: |
             This release includes the following container image:
-            ghcr.io/${{ github.repository }}:${{ steps.semver-app.outputs.version }}
+            ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
