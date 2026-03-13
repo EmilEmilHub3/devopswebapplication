@@ -12,10 +12,7 @@ on:
 
 # Permissions required for this workflow
 permissions:
-  # Needed to create GitHub releases
   contents: write
-
-  # Needed to push Docker images to GitHub Container Registry
   packages: write
 
 jobs:
@@ -25,24 +22,17 @@ jobs:
 
     steps:
       # Step 1: Checkout the repository code
-      # This downloads the repository so the runner can build it
-      # fetch-depth: 0 ensures tags and full history are available for semantic versioning
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # Step 2: Convert repository name to lowercase
-      # Docker registries require image names to be lowercase
-      # GitHub repository names may contain uppercase characters
       - name: Set lowercase repository name
         id: repo
         run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       # Step 3: Calculate semantic version based on commit messages
-      # Uses Conventional Commits to determine version bump
-      # feat: -> minor version increase
-      # BREAKING CHANGE -> major version increase
       - name: Calculate semantic version
         id: semver-app
         uses: paulhatch/semantic-version@v5.4.0
@@ -53,7 +43,6 @@ jobs:
           version_format: "${major}.${minor}.${patch}"
 
       # Step 4: Log in to GitHub Container Registry (GHCR)
-      # This allows the pipeline to push Docker images to GHCR
       - name: Log in to GHCR
         uses: docker/login-action@v2
         with:
@@ -62,27 +51,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 5: Build the Docker image
-      # Two tags are created:
-      # 1) staging -> latest development version
-      # 2) semantic version -> e.g. 1.2.0
       - name: Build Docker image
         run: |
           docker build \
             -t ghcr.io/${{ steps.repo.outputs.repo }}:staging \
+            -t ghcr.io/${{ steps.repo.outputs.repo }}:latest \
             -t ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }} \
             -f DevOpsWebApplication/Dockerfile \
             .
 
       # Step 6: Push the Docker images to GHCR
-      # Both the staging tag and the version tag are uploaded
       - name: Push Docker images
         run: |
           docker push ghcr.io/${{ steps.repo.outputs.repo }}:staging
+          docker push ghcr.io/${{ steps.repo.outputs.repo }}:latest
           docker push ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
 
       # Step 7: Create a GitHub Release
-      # This generates release notes automatically
-      # and links the release to the Docker image version
       - name: Create release notes
         uses: ncipollo/release-action@v1
         with:
@@ -93,10 +78,10 @@ jobs:
             This release includes the following container image:
             http://ghcr.io/${{ steps.repo.outputs.repo }}:${{ steps.semver-app.outputs.version }}
 
-
+      # Deploy to STAGING
       - name: Deliver Docker compose file to staging
         uses: appleboy/scp-action@v0.1.7
-        with: 
+        with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
@@ -114,4 +99,34 @@ jobs:
             docker compose pull
             docker compose up -d
 
-       
+
+  deployment:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+
+    # Wait for staging deployment to finish
+    needs: delivery
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deliver production compose file
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          source: "docker-compose.production.yaml"
+          target: dowa/
+
+      - name: Run Docker Compose on production server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            cd dowa
+            docker compose -f docker-compose.production.yaml pull
+            docker compose -f docker-compose.production.yaml up -d
